@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/jirawan-chuapradit/grpc-go-course/greet/greetpb"
 	"google.golang.org/grpc"
 	"log"
 	"net"
@@ -19,4 +20,8 @@ func main() {
 
 	s := grpc.NewServer()
 	greetpb.RegisterGreetServiceServer(s,&server{})
+
+	if err:= s.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
 }
