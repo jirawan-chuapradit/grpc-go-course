@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package calculator;
+option go_package="/calculator/calculatorpb";
+
+
+message CalculatorRequest {
+  int64 number1 = 1;
+  int64  number2 = 2;
+}
+
+message CalculatorResponse {
+  int64 sum = 1;
+}
+
+service CalculatorService {
+  // Unary
+  rpc Calculator(CalculatorRequest) returns (CalculatorResponse) {};
+}
