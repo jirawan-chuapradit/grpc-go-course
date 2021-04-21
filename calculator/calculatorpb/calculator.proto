@@ -13,7 +13,19 @@ message CalculatorResponse {
   int64 sum = 1;
 }
 
+message PrimeNumberManyTimesRequest {
+  int32 number = 1;
+}
+
+message PrimeNumberManyTimesResponse {
+  int64 result = 1;
+}
+
+
 service CalculatorService {
   // Unary
   rpc Calculator(CalculatorRequest) returns (CalculatorResponse) {};
+
+  // Server Streaming
+  rpc PrimeNumberDecomposition (PrimeNumberManyTimesRequest) returns (stream PrimeNumberManyTimesResponse){};
 }

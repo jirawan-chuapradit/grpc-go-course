@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/jirawan-chuapradit/grpc-go-course/calculator/calculatorpb"
 	"google.golang.org/grpc"
+	"io"
 	"log"
 )
 
@@ -18,6 +19,29 @@ func main()  {
 	client := calculatorpb.NewCalculatorServiceClient(conn)
 
 	doUnary(client)
+	doServerStreaming(client)
+}
+
+func doServerStreaming(client calculatorpb.CalculatorServiceClient) {
+	req := &calculatorpb.PrimeNumberManyTimesRequest{
+		Number: 120,
+	}
+
+	resStream, err := client.PrimeNumberDecomposition(context.Background(),req)
+	if err != nil {
+		log.Fatalf("error while calling PrimeNumberDecomposition RPC: %v", err)
+	}
+
+	for {
+		msg, err := resStream.Recv()
+		if err == io.EOF {
+			break
+		}else if err != nil {
+			log.Fatalf("error while reading stream: %v", err)
+		}
+
+		log.Printf("Response from GreetManyTimes: %v", msg.GetResult())
+	}
 }
 
 func doUnary(client calculatorpb.CalculatorServiceClient) {
