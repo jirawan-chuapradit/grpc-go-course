@@ -10,20 +10,80 @@ import (
 	"time"
 )
 
-func main () {
+func main() {
 
 	fmt.Println("Hello I'm a client.")
 	cc, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("could not connect: %v", err)
 	}
-	defer  cc.Close()
+	defer cc.Close()
 
 	c := greetpb.NewGreetServiceClient(cc)
 	//fmt.Printf("Created client: %f", c)
 	//doUnary(c)
 	//doServerStreaming(c)
-	doClientStreaming(c)
+	//doClientStreaming(c)
+	doBiDiStreaming(c)
+}
+
+func doBiDiStreaming(c greetpb.GreetServiceClient) {
+	fmt.Println("Starting to do a BiDi Streaming RPC ... ")
+
+	//	 we create a stream by invoke the client
+	steam, err := c.GreetEveryone(context.Background())
+	if err != nil {
+		log.Fatalf("error while creating stream: %v", err)
+		return
+	}
+
+	requests := []*greetpb.GreetEveryoneRequest{
+		{
+			Greeting: &greetpb.Greeting{
+				FirstName: "user1",
+			},
+		},
+		{
+			Greeting: &greetpb.Greeting{
+				FirstName: "user2",
+			},
+		},
+		{
+			Greeting: &greetpb.Greeting{
+				FirstName: "user3",
+			},
+		},
+	}
+
+	waitc := make(chan struct{})
+	// we send a bunch of message to the client (go routine)
+	go func() {
+		//	function to send a bunch of message
+		for _, req := range requests {
+			fmt.Printf("send message: %v\n",req)
+			steam.Send(req)
+			time.Sleep(1000 * time.Millisecond)
+		}
+		steam.CloseSend()
+	}()
+	// we receive a bunch of message from the client go routine)
+	go func() {
+		//	function to send a bunch of message
+		for {
+			res, err := steam.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("error while receiving: %v", err)
+				break
+			}
+			fmt.Printf("received: %v\n", res.GetResult())
+		}
+		close(waitc)
+	}()
+	// block util every thing is done.
+	<-waitc
 }
 
 func doClientStreaming(c greetpb.GreetServiceClient) {
@@ -45,7 +105,6 @@ func doClientStreaming(c greetpb.GreetServiceClient) {
 				FirstName: "user3",
 			},
 		},
-
 	}
 
 	stream, err := c.LongGreet(context.Background())
@@ -55,7 +114,7 @@ func doClientStreaming(c greetpb.GreetServiceClient) {
 
 	// we iterate over our slice and send each message individually
 	for _, req := range requests {
-		fmt.Printf("Sending request: %v\n",req)
+		fmt.Printf("Sending request: %v\n", req)
 		stream.Send(req)
 		time.Sleep(1000 * time.Millisecond)
 	}
@@ -72,11 +131,11 @@ func doServerStreaming(c greetpb.GreetServiceClient) {
 	req := &greetpb.GreetManytimesRequest{
 		Greeting: &greetpb.Greeting{
 			FirstName: "firtname test",
-			LastName: "lastname test",
+			LastName:  "lastname test",
 		},
 	}
 	resStream, err := c.GreetManyTimes(context.Background(), req)
-	if err != nil{
+	if err != nil {
 		log.Fatalf("error while calling GreetManyTimes RPC: %v", err)
 	}
 
@@ -95,15 +154,15 @@ func doServerStreaming(c greetpb.GreetServiceClient) {
 	}
 }
 
-func doUnary (c greetpb.GreetServiceClient) {
+func doUnary(c greetpb.GreetServiceClient) {
 	fmt.Println("Starting to do a Unary RPC")
 	req := &greetpb.GreetRequest{
 		Greeting: &greetpb.Greeting{
 			FirstName: "step",
-			LastName: "lastname",
+			LastName:  "lastname",
 		},
 	}
-	res, err := c.Greet(context.Background(),req)
+	res, err := c.Greet(context.Background(), req)
 	if err != nil {
 		log.Fatalf("error while calling Greet RPC: %v\n", err)
 	}

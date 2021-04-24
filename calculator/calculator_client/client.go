@@ -22,7 +22,50 @@ func main()  {
 
 	//doUnary(client)
 	//doServerStreaming(client)
-	doClientStreaming(client)
+	//doClientStreaming(client)
+	doBiDiStreaming(client)
+}
+
+func doBiDiStreaming(client calculatorpb.CalculatorServiceClient) {
+	stream, err := client.FindMaximum(context.Background())
+	if err !=nil {
+		log.Fatalf("error while opening stream and calling maximum: %v", err)
+	}
+
+	waitc := make(chan struct{})
+
+	// send go routine
+	go func() {
+		number := []int32{4,7,2,19,4,6,30}
+		for _, req := range number{
+			 stream.Send(&calculatorpb.FindMaximumRequest{
+				Number: req,
+			})
+			time.Sleep(1000*time.Millisecond)
+		}
+		stream.CloseSend()
+	}()
+
+	// receive routine
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+
+			if err != nil {
+				log.Fatalf("error while recieve data from server stream: %v", err)
+				break
+			}
+
+			maximum := res.GetMaximum()
+			fmt.Printf("recieve a new maximum: %v\n", maximum)
+		}
+		close(waitc)
+	}()
+
+	<- waitc
 }
 
 func doClientStreaming(client calculatorpb.CalculatorServiceClient) {
