@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/jirawan-chuapradit/grpc-go-course/greet/greetpb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 	"log"
 	"net"
@@ -12,7 +14,26 @@ import (
 	"time"
 )
 
-type server struct {}
+type server struct{}
+
+func (*server) GreetWithDeadline(ctx context.Context, request *greetpb.GreetWithDeadlineRequest) (*greetpb.GreetWithDeadlineResponse, error) {
+	fmt.Printf("GreetWithDeadline function was invoked with a streaming request\n")
+	for i := 0; i < 3; i++ {
+		if ctx.Err() == context.Canceled {
+			// the client canceled the request
+			fmt.Println("The client canceled the request!")
+			return nil, status.Error(codes.DeadlineExceeded, "the client canceled the request")
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	firstName := request.GetGreeting().GetFirstName()
+	result := "Hello "+firstName
+	res := &greetpb.GreetWithDeadlineResponse{
+		Result: result,
+	}
+	return res, nil
+}
 
 func (*server) GreetEveryone(everyoneServer greetpb.GreetService_GreetEveryoneServer) error {
 	fmt.Printf("GreetEveryone function was invoked with a streaming request\n")
@@ -28,7 +49,7 @@ func (*server) GreetEveryone(everyoneServer greetpb.GreetService_GreetEveryoneSe
 		}
 
 		firstname := req.GetGreeting().GetFirstName()
-		result := "Hello "+ firstname +"! "
+		result := "Hello " + firstname + "! "
 		err = everyoneServer.Send(&greetpb.GreetEveryoneResponse{
 			Result: result,
 		})
@@ -68,7 +89,7 @@ func (*server) GreetManyTimes(request *greetpb.GreetManytimesRequest, timesServe
 	fmt.Printf("GreetManyTimes function was invoked with %v\n", request)
 
 	firstName := request.GetGreeting().GetFirstName()
-	for i := 0; i< 10 ; i++ {
+	for i := 0; i < 10; i++ {
 		result := "Hello " + firstName + " >>> number: " + strconv.Itoa(i)
 		res := &greetpb.GreetManyTImesResponse{
 			Result: result,
@@ -89,8 +110,6 @@ func (*server) Greet(ctx context.Context, request *greetpb.GreetRequest) (*greet
 	return res, nil
 }
 
-
-
 func main() {
 	fmt.Println("Hello world")
 
@@ -100,9 +119,9 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	greetpb.RegisterGreetServiceServer(s,&server{})
+	greetpb.RegisterGreetServiceServer(s, &server{})
 
-	if err:= s.Serve(lis); err != nil {
+	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }
