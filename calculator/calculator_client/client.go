@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/jirawan-chuapradit/grpc-go-course/calculator/calculatorpb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 	"log"
 	"time"
@@ -23,8 +25,36 @@ func main()  {
 	//doUnary(client)
 	//doServerStreaming(client)
 	//doClientStreaming(client)
-	doBiDiStreaming(client)
+	//doBiDiStreaming(client)
+	doErrorUnary(client)
 }
+
+func doErrorUnary(client calculatorpb.CalculatorServiceClient) {
+	// correct call
+	correctRequest := &calculatorpb.SquareRootRequest{
+		Number: -10,
+	}
+	res, err := client.SquareRoot(context.Background(),correctRequest)
+	if err != nil {
+		status, ok := status.FromError(err)
+		if !ok {
+			log.Fatalf("big error calling SquareRoot: %v\n", err)
+			return
+		}else {
+			fmt.Println(status.Message())
+			fmt.Println(status.Code())
+			if status.Code() == codes.InvalidArgument {
+				fmt.Println("we probably sent a negative number!")
+				return
+			}
+		}
+	}
+
+	fmt.Printf("result of square root: %v\n", res.GetNumberRoot())
+
+}
+
+
 
 func doBiDiStreaming(client calculatorpb.CalculatorServiceClient) {
 	stream, err := client.FindMaximum(context.Background())
