@@ -22,6 +22,46 @@ var collection *mongo.Collection
 
 type server struct{}
 
+func (s server) UpdateBlog(ctx context.Context, request *blogpb.UpdateBlogRequest) (*blogpb.UpdateBlogResponse, error) {
+	fmt.Println("update blog request ...")
+
+	blog := request.GetBlog()
+	oid, err := primitive.ObjectIDFromHex(blog.GetId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "cannot parse ID")
+	}
+
+	data := &blogItem{}
+	filter := bson.D{{"_id", oid}}
+
+	err = collection.FindOne(context.Background(),filter).Decode(&data)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("cannot find blog with specified ID: %V", err))
+	}
+
+	// we update our internal struct
+	data.AuthorID = blog.GetAuthorId()
+	data.Content = blog.GetContent()
+	data.Title = blog.GetTitle()
+
+	_, err = collection.ReplaceOne(context.Background(), filter,data)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, fmt.Sprintf("cannot update object in mongoDB: %V", err))
+	}
+	return &blogpb.UpdateBlogResponse{
+		Blog: dataToBlogPb(*data),
+	},nil
+}
+
+func dataToBlogPb (data blogItem) *blogpb.Blog{
+	return &blogpb.Blog{
+		Id: data.ID.Hex(),
+		AuthorId: data.AuthorID,
+		Content: data.Content,
+		Title: data.Title,
+	}
+}
+
 func (s server) ReadBlog(ctx context.Context, request *blogpb.ReadBlogRequest) (*blogpb.ReadBlogResponse, error) {
 	fmt.Println("read blog request ...")
 
@@ -42,12 +82,7 @@ func (s server) ReadBlog(ctx context.Context, request *blogpb.ReadBlogRequest) (
 	}
 
 	return &blogpb.ReadBlogResponse{
-		Blog: &blogpb.Blog{
-			Id: data.ID.Hex(),
-			AuthorId: data.AuthorID,
-			Content: data.Content,
-			Title: data.Title,
-		},
+		Blog: dataToBlogPb(*data),
 	},nil
 }
 
