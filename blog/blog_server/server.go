@@ -22,6 +22,29 @@ var collection *mongo.Collection
 
 type server struct{}
 
+func (s server) DeleteBlog(ctx context.Context, request *blogpb.DeleteBlogRequest) (*blogpb.DeleteBlogResponse, error) {
+	fmt.Println("delete blog request ...")
+	oid, err := primitive.ObjectIDFromHex(request.GetBlog().GetId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "cannot parse ID")
+	}
+
+	filter := bson.D{{"_id", oid}}
+
+	res, err := collection.DeleteOne(context.Background(), filter)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, fmt.Sprintf("cannot delete object in MongoDB: %v", err))
+	}
+
+	if res.DeletedCount == 0 {
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("cannot delete object in MongoDB: %v", err))
+	}
+
+	return &blogpb.DeleteBlogResponse{
+		BlogId: request.GetBlog().GetId(),
+	}, nil
+}
+
 func (s server) UpdateBlog(ctx context.Context, request *blogpb.UpdateBlogRequest) (*blogpb.UpdateBlogResponse, error) {
 	fmt.Println("update blog request ...")
 
@@ -36,7 +59,7 @@ func (s server) UpdateBlog(ctx context.Context, request *blogpb.UpdateBlogReques
 
 	err = collection.FindOne(context.Background(),filter).Decode(&data)
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("cannot find blog with specified ID: %V", err))
+		return nil, status.Errorf(codes.NotFound, fmt.Sprintf("cannot find blog with specified ID: %v", err))
 	}
 
 	// we update our internal struct
